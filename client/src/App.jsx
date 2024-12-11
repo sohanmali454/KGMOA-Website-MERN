@@ -5,9 +5,11 @@ import UserRegistration from "./pages/UserRegistration";
 import AdminDashboard from "./pages/AdminDashboard";
 import PaymentGetway from "./pages/PaymentGetway";
 import RegistrationSuccessful from "./pages/RegistrationSuccessful";
+import Header from "./components/Header";
 export default function App() {
   return (
     <BrowserRouter>
+    <Header/>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/admin-sign-in" element={<AdminSignIn />} />
