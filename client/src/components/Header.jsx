@@ -33,7 +33,7 @@ export default function Header() {
               Events
             </li>
           </Link>
-          <Link to="/conference-2025">
+          <Link to="/user-registration">
             <li className="hidden sm:inline text-slate-700 hover:underline">
               Conference 2025
             </li>

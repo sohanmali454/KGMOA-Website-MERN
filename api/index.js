@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import doctor from "./routes/user.route.js";
+import admin from "./routes/admin.router.js";
 dotenv.config();
 
 const app = express();
@@ -18,25 +20,24 @@ mongoose
     console.error("Error connecting to MongoDB:", err.message);
   });
 
-// app.use(express.json());
-// app.use(cookieParser());
-// app.use(cors());
+app.use(express.json());
+app.use(cookieParser());
+app.use(cors());
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}!!!`);
 });
 
-// app.use("/api/user", userRoutes);
-// app.use("/api/auth", authRoutes);
-// app.use("/api/listing", listingRoutes);
+app.use("/api/doctor", doctor);
+app.use("/api/admin", admin);
 
-// Error handling middleware
-// app.use((err, req, res, next) => {
-//   const statusCode = err.statusCode || 500;
-//   const message = err.message || "Internal Server Error";
+//Error handling middleware
+app.use((err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
 
-//   return res.status(statusCode).json({
-//     success: false,
-//     statusCode,
-//     message,
-//   });
-// });
+  return res.status(statusCode).json({
+    success: false,
+    statusCode,
+    message,
+  });
+});
