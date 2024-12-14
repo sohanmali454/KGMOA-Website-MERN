@@ -22,7 +22,7 @@ const doctorSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    transactionId: {
+    paymentId: {
       type: String,
       unique: true,
     },

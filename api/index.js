@@ -2,9 +2,11 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import Razorpay from "razorpay";
 import cors from "cors";
 import doctor from "./routes/user.route.js";
 import admin from "./routes/admin.router.js";
+import paymentRoutes from "./routes/payment.route.js";
 dotenv.config();
 
 const app = express();
@@ -29,6 +31,7 @@ app.listen(PORT, () => {
 
 app.use("/api/doctor", doctor);
 app.use("/api/admin", admin);
+app.use("/api/payment", paymentRoutes);
 
 //Error handling middleware
 app.use((err, req, res, next) => {

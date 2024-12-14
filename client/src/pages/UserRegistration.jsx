@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import QRCode from "qrcode";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function UserRegistration() {
   const [formData, setFormData] = useState({
@@ -12,49 +13,172 @@ export default function UserRegistration() {
   const [amount, setAmount] = useState(0);
   const [qrCode, setQrCode] = useState(null);
 
+  const membershipOptions = [
+    { id: "rc-single", label: "RC Member (Single)", price: 10000 },
+    { id: "rc-couple", label: "RC Member (Couple)", price: 20000 },
+    { id: "del-single", label: "DEL Member (Single)", price: 5000 },
+    { id: "del-family", label: "DEL Member (Family)", price: 10000 },
+  ];
+
+  // Handle input field changes
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
 
-  const handleMembershipChange = (e) => {
-    const selectedType = e.target.value;
-    setFormData({ ...formData, membershipType: selectedType });
-
-    let calculatedAmount = 0;
-    if (selectedType === "rc-single") calculatedAmount = 10000;
-    else if (selectedType === "rc-couple") calculatedAmount = 20000;
-    else if (selectedType === "del-single") calculatedAmount = 5000;
-    else if (selectedType === "del-family") calculatedAmount = 10000;
-
-    setAmount(calculatedAmount);
+  // Validate the form
+  const formValid = () => {
+    return (
+      formData.name &&
+      formData.place &&
+      formData.kmcNumber &&
+      formData.mobile.match(/^\d{10}$/) &&
+      formData.membershipType
+    );
   };
 
+  // Handle membership selection
+  const handleMembershipChange = (e) => {
+    const selectedType = membershipOptions.find(
+      (option) => option.id === e.target.value
+    );
+    setFormData({ ...formData, membershipType: selectedType.id });
+    setAmount(selectedType.price);
+  };
+
+  // Submit form and initiate payment
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Mock payment gateway redirection and success
-    const paymentSuccessful = window.confirm(
-      `Proceeding with payment of ₹${amount}. Click OK to simulate payment success.`
-    );
+    if (!formValid()) {
+      toast.error("Please fill all fields correctly.");
+      return;
+    }
 
-    if (paymentSuccessful) {
-      try {
-        // Generate QR code with user data
-        const qrData = JSON.stringify(formData);
-        const qrCodeUrl = await QRCode.toDataURL(qrData);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_HOST_URL}/api/payment/order`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ amount }),
+        }
+      );
 
-        setQrCode(qrCodeUrl);
-
-        // Mock saving to the database
-        console.log("User registered with data:", formData);
-
-        alert("Registration successful! Your QR code has been generated.");
-      } catch (err) {
-        console.error("Error generating QR code:", err);
-        alert("Failed to generate QR code.");
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
-    } else {
-      alert("Payment failed. Registration aborted.");
+
+      const data = await res.json();
+      console.log(data.order.amount);
+      handlePaymentVerify(data);
+    } catch (error) {
+      console.error("Error during submission:", error.message);
+      alert("Failed to process your request. Please try again.");
+    }
+  };
+
+  // Payment Verification and Razorpay Integration
+  const handlePaymentVerify = (data) => {
+    if (!data) {
+      console.error("No payment data received");
+      alert("Payment initialization failed. Please try again.");
+      return;
+    }
+
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Razorpay key
+      amount: data.order.amount,
+      currency: data.currency,
+      name: "Business Name",
+      description: "Test Mode",
+      order_id: data.id, // Razorpay Order ID
+      handler: async (response) => {
+        console.log("Payment response:", response);
+
+        try {
+          const res = await fetch(
+            `${import.meta.env.VITE_BACKEND_HOST_URL}/api/payment/verify`,
+            {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            }
+          );
+          const verifyData = await res.json();
+
+          if (verifyData.message) {
+            toast.success(verifyData.message);
+
+            // Generate QR Code after payment is successful
+            generateQRCode();
+
+            // Prepare the form data for the new doctor registration
+            const newDoctorData = {
+              ...formData,
+              paymentId: response.razorpay_payment_id,
+              qrCode: qrCode,
+            };
+
+            // Insert the new doctor into the database
+            await insertDoctor(newDoctorData);
+
+            // Reset form data and states
+            setFormData({
+              name: "",
+              place: "",
+              kmcNumber: "",
+              mobile: "",
+              membershipType: "",
+            });
+            setAmount(0);
+          }
+        } catch (error) {
+          console.error("Payment verification error:", error);
+        }
+      },
+      theme: { color: "#5f63b8" },
+    };
+
+    const rzp1 = new window.Razorpay(options);
+    rzp1.open();
+  };
+
+  // QR Code Generation
+  const generateQRCode = async () => {
+    try {
+      const url = `Name: ${formData.name}\nPlace: ${formData.place}\nMembership: ${formData.membershipType}`;
+      const qr = await QRCode.toDataURL(url);
+      setQrCode(qr);
+    } catch (err) {
+      console.error("QR Code generation failed", err);
+    }
+  };
+
+  // Function to insert the doctor's data into the database
+  const insertDoctor = async (doctorData) => {
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_HOST_URL}/api/doctor/register`, // Modify to your endpoint
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(doctorData),
+        }
+      );
+      if (res.ok) {
+        toast.success("Doctor registration successful");
+      } else {
+        toast.error("Failed to register doctor");
+      }
+    } catch (error) {
+      console.error("Error inserting doctor:", error);
+      toast.error("Error inserting doctor into the database");
     }
   };
 
@@ -79,6 +203,7 @@ export default function UserRegistration() {
                   name="name"
                   id="name"
                   onChange={handleInputChange}
+                  value={formData.name}
                   className="bg-gray-800 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
                   placeholder="Enter doctor name"
                   required
@@ -97,6 +222,7 @@ export default function UserRegistration() {
                   name="place"
                   id="place"
                   onChange={handleInputChange}
+                  value={formData.place}
                   className="bg-gray-800 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
                   placeholder="Enter place"
                   required
@@ -115,6 +241,7 @@ export default function UserRegistration() {
                   name="kmcNumber"
                   id="kmcNumber"
                   onChange={handleInputChange}
+                  value={formData.kmcNumber}
                   className="bg-gray-800 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
                   placeholder="Enter KMC Number"
                   required
@@ -133,6 +260,7 @@ export default function UserRegistration() {
                   name="mobile"
                   id="mobile"
                   onChange={handleInputChange}
+                  value={formData.mobile}
                   className="bg-gray-800 border border-gray-600 text-white text-sm rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5"
                   placeholder="Enter Mobile Number"
                   required
@@ -144,15 +272,7 @@ export default function UserRegistration() {
                   Membership Type
                 </label>
                 <div className="flex gap-4">
-                  {[
-                    { id: "rc-single", label: "RC Member (Single) - ₹10,000" },
-                    { id: "rc-couple", label: "RC Member (Couple) - ₹20,000" },
-                    { id: "del-single", label: "DEL Member (Single) - ₹5,000" },
-                    {
-                      id: "del-family",
-                      label: "DEL Member (Family) - ₹10,000",
-                    },
-                  ].map((option) => (
+                  {membershipOptions.map((option) => (
                     <div key={option.id}>
                       <input
                         type="radio"
@@ -160,9 +280,10 @@ export default function UserRegistration() {
                         value={option.id}
                         id={option.id}
                         onChange={handleMembershipChange}
+                        checked={formData.membershipType === option.id}
                       />
                       <label htmlFor={option.id} className="ml-2 text-white">
-                        {option.label}
+                        {option.label} - ₹{option.price}
                       </label>
                     </div>
                   ))}
@@ -177,17 +298,22 @@ export default function UserRegistration() {
             <div className="flex justify-center">
               <button
                 type="submit"
-                className="inline-flex items-center px-5 py-2.5 mt-4 sm:mt-6 text-xl  text-center text-white bg-blue-500 rounded-lg   hover:bg-primary-800 font-bold"
+                className="inline-flex items-center px-5 py-2.5 mt-4 sm:mt-6 text-xl text-center text-white bg-blue-500 rounded-lg hover:bg-primary-800 font-bold"
               >
                 Proceed to Payment
               </button>
+              <Toaster />
             </div>
           </form>
 
           {qrCode && (
             <div className="mt-6 text-center">
               <h3 className="text-lg font-bold text-white">Your QR Code:</h3>
-              <img src={qrCode} alt="Doctor QR Code" className="mx-auto mt-4" />
+              <img
+                src={qrCode}
+                alt="QR Code"
+                className="mt-4 max-w-xs mx-auto"
+              />
             </div>
           )}
         </div>

@@ -2,7 +2,11 @@
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        serif: ['"Times New Roman"', "Times", "serif"], // Define the custom font family
+      },
+    },
   },
   plugins: [],
 };
