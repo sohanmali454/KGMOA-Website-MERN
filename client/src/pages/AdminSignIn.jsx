@@ -24,15 +24,15 @@ export default function AdminSignIn() {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    dispatch(signInStart());
 
+    dispatch(signInStart());
     try {
       const res = await fetch("/api/admin/signIn", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      const data = await res.json(); // This is where you need to assign the response
+      const data = await res.json();
 
       if (data.success === false) {
         dispatch(signInFailure(data.message));
@@ -47,7 +47,7 @@ export default function AdminSignIn() {
 
   return (
     <div className="dark">
-      <section className="bg-gray-900 dark:bg-gray-900">
+      <section className="bg-gradient-to-b from-gray-900 to-blue-300">
         <div className="flex flex-col items-center justify-center px-6 py-8 mx-auto md:h-screen lg:py-0">
           <a
             href="#"

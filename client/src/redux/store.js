@@ -1,11 +1,13 @@
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import adminReducer from "./admin/adminSlice";
+import doctorReducer from "./doctor/doctorSlice";
 import { persistReducer, persistStore } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
 // Combine all the reducers into a single root reducer
 const rootReducer = combineReducers({
   admin: adminReducer,
+  doctor: doctorReducer,
 });
 
 // Configuration for redux-persist
